@@ -50,9 +50,39 @@ function AskWithVoice() {
     }
   };
 
-  const handleSubmit = () => {
-    alert(`You asked: ${transcript}`);
-    // Here you would process the voice input and provide help
+  const [responseText, setResponseText] = useState('');
+  const synthRef = useRef(window.speechSynthesis);
+
+  const handleSubmit = async () => {
+    if (!transcript) return;
+
+    // Send transcript to backend or AI service
+    try {
+      const response = await fetch('http://localhost:5000/api/ask-voice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: transcript })
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      const answer = data.answer || 'Sorry, no response from server.';
+      setResponseText(answer);
+
+      // Use SpeechSynthesis to read the response aloud
+      if (synthRef.current) {
+        synthRef.current.cancel(); // Cancel any ongoing speech
+        const utterance = new SpeechSynthesisUtterance(answer);
+        utterance.lang = 'en-US';
+        synthRef.current.speak(utterance);
+      }
+    } catch (error) {
+      console.error('Error fetching response:', error);
+      setResponseText('Error fetching response from server.');
+    }
   };
 
   return (
@@ -77,6 +107,11 @@ function AskWithVoice() {
       >
         Submit
       </button>
+      {responseText && (
+        <div className="mt-4 p-4 border border-gray-400 rounded bg-gray-50">
+          <strong>Response:</strong> {responseText}
+        </div>
+      )}
     </div>
   );
 }
